@@ -1,5 +1,4 @@
 package main
-
 import (
 	"fmt"
 	"regexp"
@@ -21,6 +20,10 @@ import (
 )
 
 // Server System Settings.
+
+const (
+	DEBUG bool = false
+)
 
 var (
 	filePath string = "public"
@@ -73,7 +76,13 @@ func main() {
 		port = "80"
 	}
 
-	a := net.JoinHostPort("127.0.0.1", port)
+	h := ""
+	if DEBUG == true {
+		h = "127.0.0.1"
+	}
+
+	a := net.JoinHostPort(h, port)
+
 	server := &http.Server{
 		Addr:    a,
 		Handler: start(mux),
