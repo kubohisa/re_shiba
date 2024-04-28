@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"regexp"
+	"strings"
 	"time"
 
 	"net"
@@ -21,15 +22,14 @@ import (
 
 // Server System Settings.
 
-const (
+var (
 	filePath string = "public"
 
-	host string = "127.0.0.1"
 	port string = "8000"
 
 	urlLength int = 1000
 
-	frameCount int = 10
+	threadCount int = 10
 ) // サーバーのパラメーターの設定
 
 var (
@@ -51,21 +51,31 @@ type urlRotator struct {
 
 var (
 	rexUrl = regexp.MustCompile(`\A[A-Za-z0-9\%\#\$\-\_\.\+\!\*\'\(\)\,\;\/\?\:\@\=\&\~\\\|]+\z`)
+
+	hostAddress string
 )
 
 func main() {
 	//
 	mux := http.NewServeMux()
 	for _, f := range urlSetting {
-		mux.HandleFunc("/exec"+f.path, f.function)
+		mux.HandleFunc("/exec"+strings.TrimSpace(f.path), f.function)
 	}
 	mux.HandleFunc("/", publicFile)
 
 	urlSetting = nil // メモリから削除
 
 	//
+	filePath = strings.TrimSpace(filePath)
+	port = strings.TrimSpace(port)
+
+	if port == "" {
+		port = "80"
+	}
+
+	a := net.JoinHostPort("127.0.0.1", port)
 	server := &http.Server{
-		Addr:    net.JoinHostPort(host, port),
+		Addr:    a,
 		Handler: start(mux),
 
 		ReadHeaderTimeout: 10 * time.Second,
@@ -94,13 +104,13 @@ func main() {
 	debug.SetGCPercent(100)
 }
 
-var frameCounter int = 0
+var threadCounter int = 0
 
 func start(next http.Handler) http.Handler {
 	//
-	frameCounter++
-	if frameCounter == frameCount {
-		frameCounter = 0
+	threadCounter++
+	if threadCounter == threadCount {
+		threadCounter = 0
 
 		rtsGarbageCollection()
 	}
@@ -112,19 +122,19 @@ func start(next http.Handler) http.Handler {
 			return
 		}
 
-		waf(w, r.URL.Path)
+		waf(w, r)
 
 		next.ServeHTTP(w, r)
 	})
 }
 
-func waf(w http.ResponseWriter, url string) {
-	if len(url) > urlLength {
+func waf(w http.ResponseWriter, r *http.Request) {
+	if len(r.URL.Path) > urlLength {
 		http.Error(w, http.StatusText(400), http.StatusBadRequest)
 		return
 	}
 
-	if rexUrl.FindString(url) == "" {
+	if rexUrl.FindString(r.URL.Path) == "" {
 		http.Error(w, http.StatusText(400), http.StatusBadRequest)
 		return
 	}
