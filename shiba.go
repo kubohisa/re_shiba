@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"regexp"
 	"time"
 
 	"net"
@@ -18,7 +19,8 @@ import (
 	"runtime/debug"
 )
 
-// System Settings.
+// Server System Settings.
+
 const (
 	filePath string = "public"
 
@@ -28,25 +30,29 @@ const (
 	urlLength int = 1000
 
 	frameCount int = 10
-)
+) // サーバーのパラメーターの設定
 
 var (
 	urlSetting []*urlRotator = []*urlRotator{
 		{"/", world},
 	}
-)
+) // URLルーティングの設定
 
 var (
 	limiter = rate.NewLimiter(1, 4) // 秒単位で４アクセス
-)
+) // 実行スレッド数の設定
 
-//
+// Server.
+
 type urlRotator struct {
 	path     string
 	function func(w http.ResponseWriter, r *http.Request)
 }
 
-//
+var (
+	rexUrl = regexp.MustCompile(`\A[A-Za-z0-9\%\#\$\-\_\.\+\!\*\'\(\)\,\;\/\?\:\@\=\&\~\\\|]+\z`)
+)
+
 func main() {
 	//
 	mux := http.NewServeMux()
@@ -106,13 +112,22 @@ func start(next http.Handler) http.Handler {
 			return
 		}
 
-		if len(r.URL.Path) > urlLength {
-			http.Error(w, http.StatusText(500), http.StatusInternalServerError)
-			return
-		}
+		waf(w, r.URL.Path)
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+func waf(w http.ResponseWriter, url string) {
+	if len(url) > urlLength {
+		http.Error(w, http.StatusText(400), http.StatusBadRequest)
+		return
+	}
+
+	if rexUrl.FindString(url) == "" {
+		http.Error(w, http.StatusText(400), http.StatusBadRequest)
+		return
+	}
 }
 
 func rtsGarbageCollection() {
@@ -129,7 +144,7 @@ func publicFile(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, filePath+r.URL.Path)
 }
 
-//
+// Action(s).
 
 func world(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "New World.")
