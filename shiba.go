@@ -65,6 +65,7 @@ func main() {
 	for _, f := range urlSetting {
 		mux.HandleFunc("/exec"+strings.TrimSpace(f.path), f.function)
 	}
+	mux.HandleFunc("/health", healthCheck)
 	mux.HandleFunc("/", publicFile)
 
 	urlSetting = nil // メモリから削除
@@ -158,6 +159,11 @@ func rtsGarbageCollection() {
 	if mem.HeapAlloc > 500<<20 { // 500MB
 		runtime.GC()
 	}
+}
+
+func healthCheck(w http.ResponseWriter, r *http.Request) {
+	http.Error(w, http.StatusText(200), http.StatusOK)
+	return
 }
 
 func publicFile(w http.ResponseWriter, r *http.Request) {
