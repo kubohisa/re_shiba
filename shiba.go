@@ -6,8 +6,11 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/net/http2"
 	"net"
 	"net/http"
+
+	"crypto/tls"
 
 	"golang.org/x/time/rate"
 	"log"
@@ -24,16 +27,23 @@ import (
 
 const (
 	DEBUG bool = false
+
+	TLS bool = false
 )
 
 var (
+	//
 	filePath string = "public"
 
 	port string = "8000"
 
-	urlLength int = 1000
-
+	//
+	urlLength   int = 1000
 	threadCount int = 10
+
+	//
+	certPath string = "cert.pem"
+	keyPath  string = "key.pem"
 ) // サーバーのパラメーターの設定
 
 var (
@@ -80,17 +90,41 @@ func main() {
 
 	h := ""
 	if DEBUG == true {
-		h = "127.0.0.1"
+		h = "localhost"
 	}
 
 	a := net.JoinHostPort(h, port)
 
-	server := &http.Server{
-		Addr:    a,
-		Handler: start(mux),
+	//
+	var server *http.Server
 
-		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       10 * time.Second,
+	if TLS == true {
+		tlsCert, err := tls.LoadX509KeyPair(certPath, keyPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		tlsCfg := &tls.Config{
+			Certificates: []tls.Certificate{tlsCert},
+		}
+
+		server = &http.Server{
+			Addr:    a,
+			Handler: start(mux),
+
+			ReadHeaderTimeout: 10 * time.Second,
+			ReadTimeout:       10 * time.Second,
+
+			TLSConfig: tlsCfg,
+		}
+	} else {
+		server = &http.Server{
+			Addr:    a,
+			Handler: start(mux),
+
+			ReadHeaderTimeout: 10 * time.Second,
+			ReadTimeout:       10 * time.Second,
+		}
 	}
 
 	runtime.GC()
@@ -101,9 +135,17 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	go func() {
-		log.Fatal(server.ListenAndServe())
-	}()
+	if TLS == true {
+		go func() {
+			http2.ConfigureServer(server, &http2.Server{})
+
+			log.Fatal(server.ListenAndServeTLS("", ""))
+		}()
+	} else {
+		go func() {
+			log.Fatal(server.ListenAndServe())
+		}()
+	}
 
 	<-ctx.Done()
 	ctx, cancel := context.WithTimeout(context.Background(), 14*time.Second)
