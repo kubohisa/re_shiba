@@ -99,7 +99,7 @@ func main() {
 	var server *http.Server
 
 	if TLS == true {
-		t := cartSetting()
+		t := certSetting()
 		tlsCfg := &t
 
 		server = &http.Server{
@@ -191,7 +191,7 @@ func waf(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func cartSetting() tls.Config {
+func certSetting() tls.Config {
 	tlsCert, err := tls.LoadX509KeyPair(certPath, keyPath)
 	if err != nil {
 		log.Fatal(err)
