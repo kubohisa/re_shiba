@@ -99,14 +99,8 @@ func main() {
 	var server *http.Server
 
 	if TLS == true {
-		tlsCert, err := tls.LoadX509KeyPair(certPath, keyPath)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		tlsCfg := &tls.Config{
-			Certificates: []tls.Certificate{tlsCert},
-		}
+		t := cartSetting()
+		tlsCfg := &t
 
 		server = &http.Server{
 			Addr:    a,
@@ -137,10 +131,10 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
+	http2.ConfigureServer(server, &http2.Server{})
+
 	if TLS == true {
 		go func() {
-			http2.ConfigureServer(server, &http2.Server{})
-
 			log.Fatal(server.ListenAndServeTLS("", ""))
 		}()
 	} else {
@@ -192,6 +186,17 @@ func waf(w http.ResponseWriter, r *http.Request) {
 	if rexUrl.FindString(r.URL.Path) == "" {
 		http.Error(w, http.StatusText(400), http.StatusBadRequest)
 		return
+	}
+}
+
+func cartSetting() tls.Config {
+	tlsCert, err := tls.LoadX509KeyPair(certPath, keyPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return tls.Config{
+		Certificates: []tls.Certificate{tlsCert},
 	}
 }
 
