@@ -116,6 +116,8 @@ func main() {
 			ReadTimeout:       10 * time.Second,
 
 			TLSConfig: tlsCfg,
+
+			ErrorLog: log.New(os.Stdout, "", log.Ldate|log.Ltime|log.Lshortfile),
 		}
 	} else {
 		server = &http.Server{
